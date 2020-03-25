@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html"; charset="utf-8" />
+        <title>Insert data in MySQL database using Ajax</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <style>
+        table {
+            display: table;
+            border-collapse: separate;
+            border-spacing: 2px;
+            border-color: gray;
+        }
+        </style>
+    </head>
+    <body>
+        <div style="margin: auto;width: 60%;">
+            <div class="alert alert-success alert-dismissible" id="success" style="display:none;">
+                <a href="#" class="close" data-dismiss="alert" aria-label="close">×</a>
+            </div>
+            <form id="demo" name="form" method="post">
+                <div class="form-group">
+                    <label for="content">Amount:</label>
+                    <input type="number" class="form-control" id="amount" placeholder="Input number" name="amount">
+                </div>
+                <input type="button" name="deposit" class="btn btn-primary" value="Deposit" id="depositsave">
+                <input type="button" name="withdraw" class="btn btn-primary" value="Withdraw" id="withdrawsave">
+            </form>
+            <p id="result"></p>
+            <div id="message">
+
+            </div>
+        </div>
+        <script type="text/javascript">
+            $(document).ready(function () {
+                getBalance();
+                $('#depositsave').on('click', function () {
+                    $.ajax({
+                        type: "POST",
+                        url: "/app_dev.php/bank/deposit",
+                        dataType: "json",
+                        data: {
+                            amount: $("#amount").val()
+                        },
+                        success: function (data) {
+
+                            if (data.result == 'true') {
+                                $("#demo")[0].reset();
+                                $("#result").html(
+                                    '<font color="#007500">戶名:「<font color="#0000ff">' + data.user +
+                                    '</font>」，存入金額:「<font color="#0000ff">' + data.amount + '</font>」！</font>');
+                            } else {
+                                $("#demo")[0].reset();
+                                $("#result").html('<font color="#ff0000">' + data.errorMsg + '</font>');
+                            }
+
+                            $("#message").html("");
+                            getBalance();
+
+                        },
+                        error: function (jqXHR) {
+                            $("#demo")[0].reset();
+                            $("#result").html('<font color="#ff0000">發生錯誤：資料庫異常，輸入需為數字\(' + jqXHR.status + '\) </font>');
+                        }
+                    });
+                });
+
+                $('#withdrawsave').on('click', function () {
+                    $.ajax({
+                        type: "POST",
+                        url: "/app_dev.php/bank/withdraw",
+                        dataType: "json",
+                        data: {
+                            amount: $("#amount").val()
+                        },
+                        success: function (data) {
+
+                            if (data.result == 'true') {
+                                $("#demo")[0].reset();
+                                $("#result").html(
+                                    '<font color="#007500">戶名:「<font color="#0000ff">' + data.user +
+                                    '</font>」，提出金額:「<font color="#0000ff">' + data.amount + '</font>」！</font>');
+                            } else {
+                                $("#demo")[0].reset();
+                                $("#result").html('<font color="#ff0000">' + data.errorMsg + '</font>');
+                            }
+
+                            $("#message").html("");
+                            getBalance();
+
+                        },
+                        error: function (jqXHR) {
+                            $("#demo")[0].reset();
+                            $("#result").html('<font color="#ff0000">發生錯誤：資料庫異常，輸入需為數字\(' + jqXHR.status + '\) </font>');
+                        }
+                    });
+                });
+            });
+
+            function getBalance() {
+                $.ajax({
+                    type: "GET",
+                    url: "/app_dev.php/bank/show",
+                    datatype: "json",
+                    success: function (data) {
+                        $("#message").append('<table id="bank">\
+                        <tr><th>ID&nbsp;&nbsp;</th>\
+                        <th>User&nbsp;&nbsp;</th>\
+                        <th>Amount&nbsp;&nbsp;&nbsp;</th>\
+                        <th>Balance&nbsp;&nbsp;&nbsp;</th>\
+                        <th>Timestamp</th></tr>\
+                        </table>');
+                        var jsonData = data;
+
+                        for (let i = 0; i < jsonData.length; i++) {
+                            var balance = jsonData[i];
+                            $("#bank").append('<tr><td>'+balance.id+'</td>\
+                            <td>'+balance.user+'</td>\
+                            <td>'+balance.amount+'</td>\
+                            <td>'+balance.balance+'</td>\
+                            <td>'+balance.timestamp+'</td>\
+                            </tr>');
+                        }
+
+                    }
+                });
+            }
+        </script>
+    </body>
+</html>
