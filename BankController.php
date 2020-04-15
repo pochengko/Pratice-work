@@ -54,49 +54,92 @@ class BankController extends Controller
                 'version' => $version
             ]);
         } else {
-            if (!$this->entityManager) {
-                $this->entityManager = $this->getDoctrine()->getManager();
-            }
-            $this->entityManager->getConnection()->beginTransaction();
-
-            try {
-            if (!$id) {
-              $id = $this->showMaxAction();
-            }
-
-                //$bank = $entityManager->getRepository(Bank::class)->findOneBy(['user' => $user], ['id' => 'DESC'], LockMode::OPTIMISTIC, $version);
-                $bank = $this->entityManager->getRepository('AppBundle:Bank')->find($id);
-                $balance = $bank->getBalance();
-                $balance = $balance + $amount;
-
-                $bank = new Bank();
-                $bank->setUser($user);
-                $bank->setAmount($amount);
-                $bank->setBalance($balance);
-                $bank->setTimestamp(new \DateTime('now'));
-                $bank->setVersion($version);
-
-                $this->entityManager->persist($bank);
-                $this->entityManager->flush();
-                $this->entityManager->getConnection()->commit();
-
-                return new JsonResponse([
-                    'result' => 'true',
-                    'user' => $user,
-                    'amount' => $amount,
-                    'id' => $id,
-                    'version' => $version
-                ]);
-                return $balance;
-
-            } catch (Exception $e) {
-                $this->entityManager->getConnection()->rollback();
-                $this->entityManager->close();
-                throw $e;
-            }
+            // if (!$this->entityManager) {
+            //     $this->entityManager = $this->getDoctrine()->getManager();
+            // }
+            // $this->entityManager->getConnection()->beginTransaction();
+            //
+            // try {
+            // if (!$id) {
+            //   $id = $this->showMaxAction();
+            // }
+            //
+            //     //$bank = $entityManager->getRepository(Bank::class)->findOneBy(['user' => $user], ['id' => 'DESC'], LockMode::OPTIMISTIC, $version);
+            //     $bank = $this->entityManager->getRepository('AppBundle:Bank')->find($id);
+            //     $balance = $bank->getBalance();
+            //     $balance = $balance + $amount;
+            //
+            //     $bank = new Bank();
+            //     $bank->setUser($user);
+            //     $bank->setAmount($amount);
+            //     $bank->setBalance($balance);
+            //     $bank->setTimestamp(new \DateTime('now'));
+            //     $bank->setVersion($version);
+            //
+            //     $this->entityManager->persist($bank);
+            //     $this->entityManager->flush();
+            //     $this->entityManager->getConnection()->commit();
+            //
+            //     return new JsonResponse([
+            //         'result' => 'true',
+            //         'user' => $user,
+            //         'amount' => $amount,
+            //         'id' => $id,
+            //         'version' => $version
+            //     ]);
+            //     return $balance;
+            //
+            // } catch (Exception $e) {
+            //     $this->entityManager->getConnection()->rollback();
+            //     $this->entityManager->close();
+            //     throw $e;
+            // }
+            return $this->deposit($user,$id,$amount,$version);
         }
 
     }
+   public function deposit($user,$id,$amount,$version){
+     if (!$this->entityManager) {
+         $this->entityManager = $this->getDoctrine()->getManager();
+     }
+     $this->entityManager->getConnection()->beginTransaction();
+
+     try {
+     if (!$id) {
+       $id = $this->showMaxAction();
+     }
+
+         //$bank = $entityManager->getRepository(Bank::class)->findOneBy(['user' => $user], ['id' => 'DESC'], LockMode::OPTIMISTIC, $version);
+         $bank = $this->entityManager->getRepository('AppBundle:Bank')->find($id);
+         $balance = $bank->getBalance();
+         $balance = $balance + $amount;
+
+         $bank = new Bank();
+         $bank->setUser($user);
+         $bank->setAmount($amount);
+         $bank->setBalance($balance);
+         $bank->setTimestamp(new \DateTime('now'));
+         $bank->setVersion($version);
+
+         $this->entityManager->persist($bank);
+         $this->entityManager->flush();
+         $this->entityManager->getConnection()->commit();
+
+         return new JsonResponse([
+             'result' => 'true',
+             'user' => $user,
+             'amount' => $amount,
+             'id' => $id,
+             'version' => $version
+         ]);
+         return $balance;
+
+     } catch (Exception $e) {
+         $this->entityManager->getConnection()->rollback();
+         $this->entityManager->close();
+         throw $e;
+     }
+   }
 
     /**
      * @Route("bank/withdraw", name="money_withdraw")
@@ -152,7 +195,7 @@ class BankController extends Controller
             } catch (Exception $e) {
                 $this->entityManager->getConnection()->rollback();
                 $this->entityManager->close();
-                throw $e;
+                return $e;
             }
         }
 

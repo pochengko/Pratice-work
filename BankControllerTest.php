@@ -23,25 +23,25 @@ class BankControllerTest extends WebTestCase
 
     public function testDepositAction()
     {
-        $success = static::createClient();
-        $fail = static::createClient();
-
-        $successParam = [
-            'user' => 'matt',
-            'amount' => 100
-        ];
-        $failParam = [
-            'user' => 'matt'
-        ];
-
-        $success->request('POST', '/bank/deposit', $successParam);
-        $fail->request('POST', '/bank/deposit', $failParam);
-
-        $resSuccess = $success->getResponse();
-        $resFail = $fail->getResponse();
-
-        $successJson = json_decode($resSuccess->getContent(), true);
-        $failJson = json_decode($resFail->getContent(), true);
+        // $success = static::createClient();
+        // $fail = static::createClient();
+        //
+        // $successParam = [
+        //     'user' => 'matt',
+        //     'amount' => 100
+        // ];
+        // $failParam = [
+        //     'user' => 'matt'
+        // ];
+        //
+        // $success->request('POST', '/bank/deposit', $successParam);
+        // $fail->request('POST', '/bank/deposit', $failParam);
+        //
+        // $resSuccess = $success->getResponse();
+        // $resFail = $fail->getResponse();
+        //
+        // $successJson = json_decode($resSuccess->getContent(), true);
+        // $failJson = json_decode($resFail->getContent(), true);
 
 
         // $bank = new Bank();
@@ -158,7 +158,19 @@ class BankControllerTest extends WebTestCase
     //   $testval = $bankController->showBalanceByIdAction($mock);
     //   self::assertEquals(700, $testval);
     // }
+    public function testDepositAction_(){
+      $bankRepository = $this->createMock(BankRepository::class);
+      $bankRepository->expects($this->any())
+          ->method('flush')
+          ->willReturn($ex);
 
+      $entityManager = $this->createMock(EntityManager::class);
+      $entityManager->expects($this->any())
+          ->method('getRepository')
+          ->willReturn($bankRepository);
+            $bankController = new BankController($entityManager);
+      var_dump($bankController->deposit('matt',123,100,1));
+    }
     public function testCalculateBalance()
     {
         $bank = new Bank();
