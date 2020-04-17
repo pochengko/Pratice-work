@@ -9,23 +9,21 @@ use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Doctrine\DBAL\LockMode;
-use Doctrine\ORM\OptimisticLockException;
-use Doctrine\Common\Persistence\ObjectManager;
+use Redis;
 
 class BankController extends Controller
 {
-  private $entityManager;
+    private $em;
 
-  public function __construct($objectManager = null)
-  {
-      if (!$this->entityManager && $objectManager) {
-          $this->entityManager = $objectManager;
-      } else if (!$this->entityManager && !$objectManager) {
-          // $this->entityManager = $this->getDoctrine()->getManager();
-      }
-  }
-
+    public function __construct($objectManager = null)
+    {
+        if (!$this->em && $objectManager) {
+            $this->em = $objectManager;
+        }
+        // else if (!$this->em && !$objectManager) {
+        //     $this->em = $this->getDoctrine()->getManager();
+        // }
+    }
     /**
      * @Route("/bank", name="bank")
      * @Method({"GET"})
@@ -49,97 +47,57 @@ class BankController extends Controller
         if (!$amount) {
             return new JsonResponse([
                 'result' => 'false',
-                'errorMsg' => '未輸入金額',
                 'id' => $id,
-                'version' => $version
+                'version' => $version,
+                'errorMsg' => '未輸入金額'
             ]);
         } else {
-            // if (!$this->entityManager) {
-            //     $this->entityManager = $this->getDoctrine()->getManager();
-            // }
-            // $this->entityManager->getConnection()->beginTransaction();
-            //
-            // try {
-            // if (!$id) {
-            //   $id = $this->showMaxAction();
-            // }
-            //
-            //     //$bank = $entityManager->getRepository(Bank::class)->findOneBy(['user' => $user], ['id' => 'DESC'], LockMode::OPTIMISTIC, $version);
-            //     $bank = $this->entityManager->getRepository('AppBundle:Bank')->find($id);
-            //     $balance = $bank->getBalance();
-            //     $balance = $balance + $amount;
-            //
-            //     $bank = new Bank();
-            //     $bank->setUser($user);
-            //     $bank->setAmount($amount);
-            //     $bank->setBalance($balance);
-            //     $bank->setTimestamp(new \DateTime('now'));
-            //     $bank->setVersion($version);
-            //
-            //     $this->entityManager->persist($bank);
-            //     $this->entityManager->flush();
-            //     $this->entityManager->getConnection()->commit();
-            //
-            //     return new JsonResponse([
-            //         'result' => 'true',
-            //         'user' => $user,
-            //         'amount' => $amount,
-            //         'id' => $id,
-            //         'version' => $version
-            //     ]);
-            //     return $balance;
-            //
-            // } catch (Exception $e) {
-            //     $this->entityManager->getConnection()->rollback();
-            //     $this->entityManager->close();
-            //     throw $e;
-            // }
-            return $this->deposit($user,$id,$amount,$version);
+            return $this->deposit($user, $id, $amount, $version);
         }
 
     }
-   public function deposit($user,$id,$amount,$version){
-     if (!$this->entityManager) {
-         $this->entityManager = $this->getDoctrine()->getManager();
-     }
-     $this->entityManager->getConnection()->beginTransaction();
 
-     try {
-     if (!$id) {
-       $id = $this->showMaxAction();
-     }
+    public function deposit($user, $id, $amount, $version)
+    {
+        if (!$this->em) {
+            $this->em = $this->getDoctrine()->getManager();
+        }
 
-         //$bank = $entityManager->getRepository(Bank::class)->findOneBy(['user' => $user], ['id' => 'DESC'], LockMode::OPTIMISTIC, $version);
-         $bank = $this->entityManager->getRepository('AppBundle:Bank')->find($id);
-         $balance = $bank->getBalance();
-         $balance = $balance + $amount;
+        $redis = new Redis();
+        $redis->connect('127.0.0.1', 6379);
 
-         $bank = new Bank();
-         $bank->setUser($user);
-         $bank->setAmount($amount);
-         $bank->setBalance($balance);
-         $bank->setTimestamp(new \DateTime('now'));
-         $bank->setVersion($version);
+        $this->em->getConnection()->beginTransaction();
 
-         $this->entityManager->persist($bank);
-         $this->entityManager->flush();
-         $this->entityManager->getConnection()->commit();
+        try {
+            $balance = $redis->incrby('balance', $amount);
 
-         return new JsonResponse([
-             'result' => 'true',
-             'user' => $user,
-             'amount' => $amount,
-             'id' => $id,
-             'version' => $version
-         ]);
-         return $balance;
+            $bank = new Bank();
+            $bank->setUser($user);
+            $bank->setAmount($amount);
+            $bank->setBalance($balance);
+            $bank->setTimestamp(new \DateTime('now'));
+            $bank->setVersion($version);
+            var_dump($this->em->persist($bank));
+            var_dump($this->em->flush());
+            $this->em->getConnection()->commit();
 
-     } catch (Exception $e) {
-         $this->entityManager->getConnection()->rollback();
-         $this->entityManager->close();
-         throw $e;
-     }
-   }
+            return new JsonResponse([
+                'result' => 'true',
+                'id' => $id,
+                'user' => $user,
+                'amount' => $amount,
+                'balance' => $balance
+            ]);
+        } catch (\Exception $e) {
+            var_dump('dfd');
+            $this->em->getConnection()->rollback();
+            $this->em->close();
+            return new JsonResponse([
+                'test' => $e->getMessage()
+            ]);
+        }
+
+    }
 
     /**
      * @Route("bank/withdraw", name="money_withdraw")
@@ -148,55 +106,67 @@ class BankController extends Controller
     public function withdrawAction(Request $request)
     {
         $user = 'matt';
+        $id = $request->request->get('id');
         $amount = $request->request->get('amount');
-        $version = '1';
+        $version = $request->request->get('version');
 
         if (!$amount) {
             return new JsonResponse([
                 'result' => 'false',
+                'id' => $id,
+                'version' => $version,
                 'errorMsg' => '未輸入金額'
             ]);
         } else {
-          if (!$this->entityManager) {
-              $this->entityManager = $this->getDoctrine()->getManager();
-          }
-            //$this->entityManager = $this->getDoctrine()->getManager();
-            $this->entityManager->getConnection()->beginTransaction();
+            return $this->withdraw($user, $id, $amount, $version);
+        }
 
-            try {
-                $bank = $this->entityManager->getRepository(Bank::class)->findOneBy([], ['id' => 'DESC']);
-                $balance = $bank->getBalance();
+    }
 
-                if ($balance < $amount) {
-                    return new JsonResponse([
-                        'errorMsg' => '餘額不足'
-                    ]);
-                } else {
-                    $balance = $balance - $amount;
+    public function withdraw($user, $id, $amount, $version)
+    {
+        if (!$this->em) {
+            $this->em = $this->getDoctrine()->getManager();
+        }
+        $this->em->getConnection()->beginTransaction();
 
-                    $bank = new Bank();
-                    $bank->setUser($user);
-                    $bank->setAmount(-$amount);
-                    $bank->setBalance($balance);
-                    $bank->setTimestamp(new \DateTime('now'));
-                    $bank->setVersion($version);
+        $redis = new Redis();
+        $redis->connect('127.0.0.1', 6379);
 
-                    //$entityManager = $this->getDoctrine()->getManager();
-                    $this->entityManager->persist($bank);
-                    $this->entityManager->flush();
-                    $this->entityManager->getConnection()->commit();
+        try {
+            $balance = $redis->get('balance');
 
-                    return new JsonResponse([
-                        'result' => 'true',
-                        'user' => $user,
-                        'amount' => $amount
-                    ]);
-                }
-            } catch (Exception $e) {
-                $this->entityManager->getConnection()->rollback();
-                $this->entityManager->close();
-                return $e;
+            if ($balance < $amount) {
+                return new JsonResponse([
+                    'errorMsg' => '餘額不足'
+                ]);
+            } else {
+                $balance = $redis->decrby('balance', $amount);
+
+                $bank = new Bank();
+                $bank->setUser($user);
+                $bank->setAmount(-$amount);
+                $bank->setBalance($balance);
+                $bank->setTimestamp(new \DateTime('now'));
+                $bank->setVersion($version);
+
+                $this->em->persist($bank);
+                $this->em->flush();
+                $this->em->getConnection()->commit();
+
+                return new JsonResponse([
+                    'result' => 'true',
+                    'user' => $user,
+                    'amount' => $amount
+                ]);
             }
+        } catch (\Exception $e) {
+            var_dump('withdraw');
+            $this->em->getConnection()->rollback();
+            $this->em->close();
+            return new JsonResponse([
+                'test' => $e->getMessage()
+            ]);
         }
 
     }
@@ -229,55 +199,40 @@ class BankController extends Controller
         return new JsonResponse($res);
     }
 
-
-    public function showMaxAction()
+    /**
+     * @Route("/bank/count", name="count_balance")
+     * @({"GET"})
+     */
+    public function countByBalanceAction()
     {
-        $bank = $this->getDoctrine()->getRepository(Bank::class)->findOneBy([], ['id' => 'DESC']);
-        $id = $bank->getId();
-        return $id;
+        $repoBanks = $this->getDoctrine()->getRepository(Bank::class);
+        $totalBanks = $repoBanks->countByBalance();
+
+        return new Response($totalBanks);
     }
 
-    // /**
-    //  * @Route("/bank/show/{id}", name="show_balance_by_id")
-    //  * @({"GET"})
-    //  */
-    // public function showBalanceByIdAction($id)
-    // {
-    //     $bank = $this->getDoctrine()->getRepository(Bank::class)->find($id);
-    //
-    //     //foreach ($banks as $bank) {
-    //         $id = $bank->getId();
-    //         $user = $bank->getUser();
-    //         $amount = $bank->getAmount();
-    //         $balance = $bank->getBalance();
-    //         $timestamp = $bank->getTimestamp()->format('Y-m-d H:i:s');
-    //         $version = $bank->getVersion();
-    //         $res[] = [
-    //             'id' => $id,
-    //             'user' => $user,
-    //             'amount' => $amount,
-    //             'balance' => $balance,
-    //             'timestamp' => $timestamp,
-    //             'version' => $version
-    //         ];
-    //     //}
-    //
-    //     return $balance + $amount;
-    // }
+    /**
+     * @Route("/bank/dql", name="count_balance_byDQL")
+     * @({"GET"})
+     */
+    public function countBalanceByAction()
+    {
+        $repoBanks = $this->getDoctrine()->getRepository(Bank::class);
+        $totalBanks = $repoBanks->countBalanceBy();
+
+        return new Response($totalBanks);
+    }
 
     /**
- * @Route("/bank/calculate/{id}", name="calculate_balance")
- * @({"GET"})
- */
-public function calculateBalance($id)
-{
-  if (!$this->entityManager) {
-      $this->entityManager = $this->getDoctrine()->getManager();
-  }
-    $bankRepository = $this->entityManager
-        ->getRepository(Bank::class);
-    $bank = $bankRepository->find($id);
+     * @Route("/bank/calculate/{id}", name="calculate_balance")
+     * @({"GET"})
+     */
+    public function calculateBalance($id)
+    {
+        $bankRepository = $this->em
+            ->getRepository(Bank::class);
+        $bank = $bankRepository->find($id);
 
-    return new Response($bank->getAmount() + $bank->getBalance());
-}
+        return new Response($bank->getAmount() + $bank->getBalance());
+    }
 }
